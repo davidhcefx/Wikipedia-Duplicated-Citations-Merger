@@ -1,25 +1,31 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python3.8
 # Merge duplicated Wikipedia references/citations. Written by davidhcefx, 2022.4.10.
 import re
 import readline
-from typing import Dict, List, Tuple, Set
 from hashlib import md5
+from string import digits
+from typing import Dict, List, Tuple, Set
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
 NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*"?(\w+)"?', re.DOTALL)  # name attribute in <ref>
-WORD_PATTERN = re.compile(r'\w')
+# patterns for generating short names
+TEMPLATE_NAMES = None
+TEMPLATE_PARAMS = None
+# From: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+URL_PATTERN = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
 
 
 class CitationDatabase:
     """
-    Associate citation-payloads with its short names.
+    Associate citation-payloads with its short-names.
     A citation-payload is the part enclosed by <ref></ref>.
     """
     def __init__(self):
         self.shortnames: Dict[str, str] = dict()  # map a payload to its short name
 
     def add(self, payload: str, shortname: str):
-        """Please ensure that each shortname is unique."""
+        assert shortname not in self.shortnames.values(), \
+            f"Name collision '{shortname}'. Check the article or try adding more hash digits."
         self.shortnames[payload] = shortname
 
     def has(self, payload: str) -> bool:
@@ -33,12 +39,26 @@ class CitationDatabase:
 
 def generate_short_name(payload: str) -> str:
     """Generate wiki-accepted short-names from citation-payloads."""
-    # compute md5 to avoid collisions
-    n = ''.join(WORD_PATTERN.findall(payload)[:5]) + md5(payload.encode()).hexdigest()
-    return 'c-{}'.format(n[:8])
+    global TEMPLATE_NAMES
+    if TEMPLATE_NAMES is None:
+        temp_names = 'book|arXiv|AV media|AV media notes|bioRxiv|conference|encyclopedia|episode|interview|magazine|mailing list|journal|map|news|newsgroup|podcast|press release|report|serial|sign |speech|techreport|thesis|web'
+        TEMPLATE_NAMES = re.compile(r'[cC]ite ({})'.format(temp_names))
+
+    global TEMPLATE_PARAMS
+    if TEMPLATE_PARAMS is None:
+        temp_params = 'access-date|agency|archive-date|archive-url|arxiv|asin|asin-tld|at|author|author-link|author-link1|author-link2|author-link3|author-link4|author-link5|author-mask|author-mask1|author-mask2|author-mask3|author-mask4|author-mask5|author2|authors|bibcode|bibcode-access|biorxiv|book-title|cartography|chapter|chapter-format|chapter-url|chapter-url-access|citeseerx|class|conference|conference-url|credits|date|department|display-authors|display-editors|display-translators|docket|doi|doi-access|doi-broken-date|edition|editor|editor-first|editor-first1|editor-first2|editor-first3|editor-first4|editor-first5|editor-last|editor-last1|editor-last2|editor-last3|editor-last4|editor-last5|editor-link|editor-link1|editor-link2|editor-link3|editor-link4|editor-link5|editor-mask1|editor-mask2|editor-mask3|editor-mask4|editor-mask5|editor1-first|editor1-last|editor1-link|editor2-first|editor2-last|editor2-link|editor3-first|editor3-last|editor3-link|editor4-first|editor4-last|editor4-link|editor5-first|editor5-last|editor5-link|editors|eissn|encyclopedia|episode|episode-link|eprint|event|first|first1|first2|first3|first4|first5|format|hdl|hdl-access|host|id|inset|institution|interviewer|isbn|ismn|issn|issue|jfm|journal|jstor|jstor-access|language|last|last1|last2|last3|last4|last5|lccn|location|magazine|mailing-list|map|map-url|medium|message-id|minutes|mode|mr|name-list-style|network|newsgroup|no-pp|number|oclc|ol|ol-access|orig-date|osti|osti-access|others|page|pages|people|pmc|pmc-embargo-date|pmid|postscript|publication-date|publication-place|publisher|quote|quote-page|quote-pages|ref|registration|rfc|s2cid|s2cid-access|sbn|scale|script-chapter|script-quote|script-title|season|section|sections|series|series-link|series-no|ssrn|station|subject|subject-link|subject-link2|subject-link3|subject-link4|subject2|subject3|subject4|time|title|title-link|trans-chapter|trans-quote|trans-title|transcript|transcript-url|translator-first1|translator-first2|translator-first3|translator-first4|translator-first5|translator-last1|translator-last2|translator-last3|translator-last4|translator-last5|translator-link1|translator-link2|translator-link3|translator-link4|translator-link5|translator-mask1|translator-mask2|translator-mask3|translator-mask4|translator-mask5|type|url|url-access|url-status|via|volume|website|work|year|zbl|zbl'
+        TEMPLATE_PARAMS = re.compile(r'\|\s*({})\s*='.format(temp_params))
+
+    # remove wiki template names, template parameters and urls
+    s = URL_PATTERN.sub('', TEMPLATE_PARAMS.sub('', TEMPLATE_NAMES.sub('', payload)))
+    words = ''.join(re.findall(r'\w', s))
+    # compute md5 to avoid collisions (2+ hash digits)
+    name = words[:8] + md5(payload.encode()).hexdigest()
+
+    return '{}{}'.format('_' if name[0] in digits else '', name[:10])
 
 def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
-    """Return a set of duplicated citation-payloads; Update db along the way."""
+    """Return a set of duplicated citation-payloads; update db along the way."""
     result = set()
     idx = 0
     while ref := REF_PATTERN.search(article, idx):
@@ -78,7 +98,7 @@ def merge(article: str) -> Tuple[str, List[str]]:
         idx = ref.end()
         payload = ref.group('pay')
         if payload not in duplicated_refs:
-            # no modification needed when unique
+            # no modification needed if it's unique
             new_article.append(ref.group())
             continue
 
@@ -110,10 +130,10 @@ def menu(prompt: str, default: int, options: List[str]) -> int:
 
 def main():
     print('{:=<40}\n{:^40}\n{:=<40}'.format('', 'Wikipedia Duplicated Citations Merger', ''))
+    readline.parse_and_bind('tab: complete')  # for filename autocompletion
     ch = menu('\nHow do you wish to provide the input?', 2,
             ['Load from file ...', 'Paste it here directly.'])
     file_input = input('Please provide the file name to load: ') if ch == 1 else 0
-    # TODO: file completion?
 
     ch = menu('\nHow do you wish to get the result?', 3,
             ['Save the result to \'result.txt\'.',
@@ -160,5 +180,6 @@ if __name__ == '__main__':
 'aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii'
 """
 
-# Old pattern:
+# Old patterns:
 #REF_PATTERN = re.compile(r'<ref\b([^>]*)(?<!/)>(([^<]|<(?!/ref>))*)</ref>', re.DOTALL)
+#OTHER_IGNORES = re.compile(r'(https?|www\.|\.(org|com)|(web\.)?archive|cgi|youtube|google|isbn)')
