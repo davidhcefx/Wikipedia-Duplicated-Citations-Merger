@@ -5,7 +5,7 @@ import readline
 from typing import Dict, List, Tuple, Set
 from hashlib import md5
 
-REF_PATTERN = re.compile(r'<ref\b(?P<name>.*?)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
+REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
 NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*"?(\w+)"?', re.DOTALL)  # name attribute in <ref>
 WORD_PATTERN = re.compile(r'\w')
 
@@ -27,7 +27,7 @@ class CitationDatabase:
         # such as URL/DOI detection or to ignore whitespace differences.
         return payload in self.shortnames
 
-.    def get_shortname(self, payload: str) -> str:
+    def get_shortname(self, payload: str) -> str:
         return self.shortnames[payload] if self.has(payload) else ''
 
 
@@ -60,16 +60,15 @@ def has_name_attribute(ref: re.Match) -> bool:
 
 def merge(article: str) -> Tuple[str, List[str]]:
     """
-    Merge duplicated refs in wiki source; return new article and a list of merged refs.
-    There are five kinds of refs: (we merge the 2nd and 4th)
-      1) no name unique payload
-      2) no name duplicated payload
-      3) has name has unique payload
-      4) has name has duplicated payload
-      5) has name no payload (skipped)
+    Merge duplicated refs in wiki source; return new article and a list of duplicated refs.
+    There are five kinds of refs: (we aim to merge the 2nd and 5th)
+      1) no name unique payload: <ref>a</ref>
+      2) no name duplicated payload: <ref>a</ref><ref>a</ref>
+      3) has name no payload (SKIPPED): <ref name="n" />
+      4) has name has unique payload: <ref name="n">a</ref>
+      5) has name has duplicated payload: <ref name="n">a</ref><ref name="n">a</ref>
     """
     new_article = []
-    merged_refs = []
     db = CitationDatabase()
     duplicated_refs: Set[str] = get_duplicated_refs(article, db)
     seen: Set[str] = set()
@@ -78,15 +77,14 @@ def merge(article: str) -> Tuple[str, List[str]]:
         new_article.append(article[idx:ref.start()])  # output the previous segment
         idx = ref.end()
         payload = ref.group('pay')
-        # unique: no modifications needed
         if payload not in duplicated_refs:
+            # no modification needed when unique
             new_article.append(ref.group())
             continue
 
         if payload in seen:
             # ignore duplicated payload body
             new_article.append('<ref name="{}" />'.format(db.get_shortname(payload)))
-            merged_refs.append(payload)
         else:
             if not has_name_attribute(ref):
                 new_article.append(
@@ -98,7 +96,7 @@ def merge(article: str) -> Tuple[str, List[str]]:
             seen.add(payload)
 
     new_article.append(article[idx:])  # the last segment
-    return (''.join(new_article), merged_refs)
+    return (''.join(new_article), list(duplicated_refs))
 
 def menu(prompt: str, default: int, options: List[str]) -> int:
     """Return choice or throw SystemExit, 1 <= choice <= len(options)."""
@@ -117,7 +115,7 @@ def main():
     file_input = input('Please provide the file name to load: ') if ch == 1 else 0
     # TODO: file completion?
 
-    ch = menu('\nHow do you wish to get the result?', 3
+    ch = menu('\nHow do you wish to get the result?', 3,
             ['Save the result to \'result.txt\'.',
                 'Save the result to ...',
                 'Display it here directly.'])
@@ -130,7 +128,7 @@ def main():
         print('Press CTRL + D when completed.')
         print('{:=<40}'.format(''))
 
-    new_article, merge_count, new_name_count = merge(open(file_input).read())
+    new_article, merged_refs = merge(open(file_input).read())
     if file_output:
         open(file_output, 'w').write(new_article)
     else:
@@ -138,7 +136,11 @@ def main():
         print(new_article)
 
     print('{:=<40}'.format(''))
-    print('Merged {} refs, added {} new name attributes.'.format(merge_count, new_name_count))
+    if len(merged_refs) == 0:
+        print('No duplicated references detected.')
+    else:
+        print('Successfully merged {} refs:'.format(len(merged_refs)))
+        print("- '{}'".format("'\n- '".join(merged_refs)))
 
 
 if __name__ == '__main__':
@@ -155,7 +157,7 @@ if __name__ == '__main__':
 '<ref name="NAME">a</ref>'
 '<ref name = "NAME" />'
 '<ref name = "NAME" /><ref></ref>'
-'aa aa<ref>no name</ref>bb bb<ref name=n1>has name</ref>cc cc<ref>no name</ref>dd dd<ref name=n2 />other ref<ref>has name</ref>ee ee<ref name=n1>has name</ref>ff ff<ref name=n3 />gg gg<ref>no name2</ref>hh hh'
+'aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii'
 """
 
 # Old pattern:
