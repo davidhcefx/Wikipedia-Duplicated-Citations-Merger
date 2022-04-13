@@ -78,9 +78,10 @@ def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
 def has_name_attribute(ref: re.Match) -> bool:
     return NAME_ATTR_PATTERN.search(ref.group('name')) is not None
 
-def merge(article: str) -> Tuple[str, List[str]]:
+def merge(article: str) -> Tuple[str, int, List[str]]:
     """
-    Merge duplicated refs in wiki source; return new article and a list of duplicated refs.
+    Merge duplicated refs in wiki source code.
+    Return new article, merge counts and a list of duplicated refs.
     There are five kinds of refs: (we aim to merge the 2nd and 5th)
       1) no name unique payload: <ref>a</ref>
       2) no name duplicated payload: <ref>a</ref><ref>a</ref>
@@ -92,6 +93,7 @@ def merge(article: str) -> Tuple[str, List[str]]:
     db = CitationDatabase()
     duplicated_refs: Set[str] = get_duplicated_refs(article, db)
     seen: Set[str] = set()
+    merge_count = 0
     idx = 0
     while ref := REF_PATTERN.search(article, idx):
         new_article.append(article[idx:ref.start()])  # output the previous segment
@@ -105,6 +107,7 @@ def merge(article: str) -> Tuple[str, List[str]]:
         if payload in seen:
             # ignore duplicated payload body
             new_article.append('<ref name="{}" />'.format(db.get_shortname(payload)))
+            merge_count += 1
         else:
             if not has_name_attribute(ref):
                 new_article.append(
@@ -116,7 +119,7 @@ def merge(article: str) -> Tuple[str, List[str]]:
             seen.add(payload)
 
     new_article.append(article[idx:])  # the last segment
-    return (''.join(new_article), list(duplicated_refs))
+    return (''.join(new_article), merge_count, list(duplicated_refs))
 
 def menu(prompt: str, default: int, options: List[str]) -> int:
     """Return choice or throw SystemExit, 1 <= choice <= len(options)."""
@@ -148,7 +151,7 @@ def main():
         print('Press CTRL + D when completed.')
         print('{:=<40}'.format(''))
 
-    new_article, merged_refs = merge(open(file_input).read())
+    new_article, merge_count, duplicated_refs = merge(open(file_input).read())
     if file_output:
         open(file_output, 'w').write(new_article)
     else:
@@ -156,11 +159,11 @@ def main():
         print(new_article)
 
     print('{:=<40}'.format(''))
-    if len(merged_refs) == 0:
+    if merge_count == 0:
         print('No duplicated references detected.')
     else:
-        print('Successfully merged {} refs:'.format(len(merged_refs)))
-        print("- '{}'".format("'\n- '".join(merged_refs)))
+        print('Successfully merged {} references. Duplicated ones are:'.format(merge_count))
+        print("- '{}'".format("'\n- '".join(duplicated_refs)))
 
 
 if __name__ == '__main__':
