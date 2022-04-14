@@ -4,21 +4,20 @@
 
 > "If you simply copy exactly the same reference and citation, the citation will become duplicated."
 
-However, it's pretty common to spot **duplicated citations** in the wild, for example the page [David Green][] and [國旗][]. The best way to resolve this issue is by using [named references][duplicated], which is exactly how this tool works!
+However, it's pretty common to spot **duplicated citations** in the wild, for example within the page [David Green][] and [國旗][]. The best way to resolve this issue is by using [named references][duplicated], which is exactly how this tool works!
 
-For example,
+For example, it would transfrom the following Wikitext:
 ```wikitext
 These are two<ref>{{cite book|title=LibreOffice for Starters|edition=First|publisher=Flexible Minds|location=Manchester|year=2002|p=18}}</ref>
 citations<ref>{{cite book|title=LibreOffice for Starters|edition=First|publisher=Flexible Minds|location=Manchester|year=2002|p=18}}</ref>.
 ```
-
-would be changed to
+to
 ```wikitext
 These are two<ref name="LibreOff56c">{{cite book|title=LibreOffice for Starters|edition=First|publisher=Flexible Minds|location=Manchester|year=2002|p=18}}</ref>
 citations<ref name="LibreOff56c" />.
 ```
 
-which not only reduced some text, but also prevent the bottom *reference list* from bloating.
+which not only reduces some text, but also prevents the *reference list* from bloating.
 
 
 ## Usage
