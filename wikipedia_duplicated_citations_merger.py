@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.8
+#! /usr/bin/env python3
 # Merge duplicated Wikipedia references/citations. Written by davidhcefx, 2022.4.10.
 import re
 import requests
@@ -6,15 +6,14 @@ import json
 import readline
 from hashlib import md5
 from string import digits
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Tuple, Set, Optional
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
 NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|".+?")', re.DOTALL)  # name attribute in <ref>
-# patterns for generating short names
-TEMPLATE_NAMES = None
-TEMPLATE_PARAMS = None
 # From: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 URL_PATTERN = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
+TEMPLATE_NAMES: Optional[re.Pattern] = None
+TEMPLATE_PARAMS: Optional[re.Pattern] = None
 
 
 class CitationDatabase:
@@ -54,7 +53,7 @@ def generate_short_name(payload: str) -> str:
     # remove urls, wiki template names and template parameters
     s = TEMPLATE_PARAMS.sub('', TEMPLATE_NAMES.sub('', URL_PATTERN.sub('', payload)))
     words = ''.join(re.findall(r'\w', s))
-    # compute md5 to avoid collisions (2+ hash digits)
+    # compute md5 to avoid collisions (11 - 8 = 3 hash digits)
     name = words[:8] + md5(payload.encode()).hexdigest()
 
     return '{}{}'.format('_' if name[0] in digits else '', name[:11])
@@ -132,7 +131,7 @@ def extract_wikitext(url: str) -> str:
         'prop': 'wikitext',
         'format': 'json',
         'formatversion': '2',
-        'page': requests.utils.unquote(match.group('page')),
+        'page': requests.utils.unquote(match.group('page')),  # type: ignore
     }
     if r := requests.get(match.group('host') + '/w/api.php', query, timeout=5):
         return json.loads(r.text)['parse']['wikitext']
