@@ -1,13 +1,15 @@
 #! /usr/bin/env python3.8
 # Merge duplicated Wikipedia references/citations. Written by davidhcefx, 2022.4.10.
 import re
+import requests
+import json
 import readline
 from hashlib import md5
 from string import digits
 from typing import Dict, List, Tuple, Set
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
-NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*"?(\w+)"?', re.DOTALL)  # name attribute in <ref>
+NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|".+?")', re.DOTALL)  # name attribute in <ref>
 # patterns for generating short names
 TEMPLATE_NAMES = None
 TEMPLATE_PARAMS = None
@@ -55,7 +57,7 @@ def generate_short_name(payload: str) -> str:
     # compute md5 to avoid collisions (2+ hash digits)
     name = words[:8] + md5(payload.encode()).hexdigest()
 
-    return '{}{}'.format('_' if name[0] in digits else '', name[:10])
+    return '{}{}'.format('_' if name[0] in digits else '', name[:11])
 
 def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
     """Return a set of duplicated citation-payloads; update db along the way."""
@@ -67,7 +69,7 @@ def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
             result.add(payload)
         else:
             # parse or generate shortname
-            shortname = n.group(1) if (n := NAME_ATTR_PATTERN.search(name_str)) \
+            shortname = n.group(1).strip('"') if (n := NAME_ATTR_PATTERN.search(name_str)) \
                         else generate_short_name(payload)
             db.add(payload, shortname)
 
@@ -121,6 +123,21 @@ def merge(article: str) -> Tuple[str, int, List[str]]:
     new_article.append(article[idx:])  # the last segment
     return (''.join(new_article), merge_count, list(duplicated_refs))
 
+def extract_wikitext(url: str) -> str:
+    """Extract Wikitext from a wiki url."""
+    if not (match := re.fullmatch(r'(?P<host>.+)/wiki/(?P<page>.+)', url)):
+        raise SystemExit('Invalid or unrecognized wiki URL.')
+    query = {
+        'action': 'parse',
+        'prop': 'wikitext',
+        'format': 'json',
+        'formatversion': '2',
+        'page': requests.utils.unquote(match.group('page')),
+    }
+    if r := requests.get(match.group('host') + '/w/api.php', query, timeout=5):
+        return json.loads(r.text)['parse']['wikitext']
+    return ''
+
 def menu(prompt: str, default: int, options: List[str]) -> int:
     """Return choice or throw SystemExit, 1 <= choice <= len(options)."""
     print(prompt)
@@ -134,9 +151,11 @@ def menu(prompt: str, default: int, options: List[str]) -> int:
 def main():
     print('{:=<40}\n{:^40}\n{:=<40}'.format('', 'Wikipedia Duplicated Citations Merger', ''))
     readline.parse_and_bind('tab: complete')  # for filename autocompletion
-    ch = menu('\nHow do you wish to provide the input?', 2,
-            ['Load from file ...', 'Paste it here directly.'])
-    file_input = input('Please provide the file name to load: ') if ch == 1 else 0
+    ch = menu('\nHow do you wish to provide the input?', 3,
+            ['Fetch from wikipedia', 'Load from file ...', 'Paste it here directly.'])
+    file_input = (None, input('URL of the wiki page: ')) if ch == 1 \
+                else input('Please provide the file name to load: ') if ch == 2 \
+                else 0
 
     ch = menu('\nHow do you wish to get the result?', 3,
             ['Save the result to \'result.txt\'.',
@@ -148,10 +167,12 @@ def main():
 
     if file_input == 0:
         print('\nPaste your wiki article source code here:')
-        print('Press CTRL + D when completed.')
-        print('{:=<40}'.format(''))
+        print('Press CTRL + D when completed.\n{:=<40}'.format(''))
 
-    new_article, merge_count, duplicated_refs = merge(open(file_input).read())
+    article = extract_wikitext(file_input[1]) if isinstance(file_input, tuple) \
+            else open(file_input).read()
+    new_article, merge_count, duplicated_refs = merge(article)
+
     if file_output:
         open(file_output, 'w').write(new_article)
     else:
@@ -177,7 +198,8 @@ if __name__ == '__main__':
 '<ref> a < << </ </r </re </ref <ref>a<ref>a </ref>'
 '<ref> a </ref><ref> b </ref>'
 '<ref n = 1 name = NAME > a </ref>'
-'<ref name="NAME">a</ref>'
+'<ref name="NA M E">a</ref>'
+'<ref name=NA M E ></ref>'
 '<ref name = "NAME" />'
 '<ref name = "NAME" /><ref></ref>'
 'aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii'
