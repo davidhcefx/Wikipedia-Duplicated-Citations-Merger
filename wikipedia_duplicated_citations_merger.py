@@ -1,16 +1,16 @@
 #! /usr/bin/env python3
 # Merge duplicated Wikipedia references/citations. Written by davidhcefx, 2022.4.10.
+from typing import Dict, List, Tuple, Set, Union, Optional, Pattern, Match
+from string import digits
 import re
-import requests
 import json
 import readline
 from hashlib import md5
-from string import digits
-from typing import Dict, List, Tuple, Set, Optional
+import requests
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
 NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|".+?")', re.DOTALL)  # name attribute in <ref>
-# From: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+# https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 URL_PATTERN = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
 TEMPLATE_NAMES: Optional[re.Pattern] = None
 TEMPLATE_PARAMS: Optional[re.Pattern] = None
@@ -69,7 +69,7 @@ def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
         else:
             # parse or generate shortname
             shortname = n.group(1).strip('"') if (n := NAME_ATTR_PATTERN.search(name_str)) \
-                        else generate_short_name(payload)
+                else generate_short_name(payload)
             db.add(payload, shortname)
 
         idx = ref.end()
@@ -151,25 +151,25 @@ def main():
     print('{:=<40}\n{:^40}\n{:=<40}'.format('', 'Wikipedia Duplicated Citations Merger', ''))
     readline.parse_and_bind('tab: complete')  # for filename autocompletion
     ch = menu('\nHow do you wish to provide the input?', 3,
-            ['Fetch from wikipedia', 'Load from file ...', 'Paste it here directly.'])
+              ['Fetch from wikipedia', 'Load from file ...', 'Paste it here directly.'])
     file_input = (None, input('URL of the wiki page: ')) if ch == 1 \
                 else input('Please provide the file name to load: ') if ch == 2 \
                 else 0
 
     ch = menu('\nHow do you wish to get the result?', 3,
-            ['Save the result to \'result.txt\'.',
-                'Save the result to ...',
-                'Display it here directly.'])
+              ['Save the result to \'result.txt\'.',
+               'Save the result to ...',
+               'Display it here directly.'])
     file_output = 'result.txt' if ch == 1 \
-                else input('Please provide the file name to save: ') if ch == 2 \
-                else ''
+        else input('Please provide the file name to save: ') if ch == 2 \
+        else ''
 
     if file_input == 0:
         print('\nPaste your wiki article source code here:')
         print('Press CTRL + D when completed.\n{:=<40}'.format(''))
 
     article = extract_wikitext(file_input[1]) if isinstance(file_input, tuple) \
-            else open(file_input).read()
+        else open(file_input).read()
     new_article, merge_count, duplicated_refs = merge(article)
 
     if file_output:
@@ -190,18 +190,19 @@ if __name__ == '__main__':
     main()
 
 
-
 # Testcases:
 """
-'<ref></ref>'
-'<ref> a < << </ </r </re </ref <ref>a<ref>a </ref>'
-'<ref> a </ref><ref> b </ref>'
-'<ref n = 1 name = NAME > a </ref>'
-'<ref name="NA M E">a</ref>'
-'<ref name=NA M E ></ref>'
-'<ref name = "NAME" />'
-'<ref name = "NAME" /><ref></ref>'
-'aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii'
+<ref></ref>
+<ref> a < << </ </r </re </ref <ref>a<ref>a </ref>
+<ref> a </ref><ref> b </ref>
+<ref n = 1 name = NAME > a </ref>
+<ref name="NA M E">a</ref>
+<ref name=NA M E ></ref>
+<ref name = "NAME" />
+<ref name = "NAME" /><ref></ref>
+aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd
+  dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg
+  gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii
 """
 
 # Old patterns:
