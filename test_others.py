@@ -1,6 +1,7 @@
 from typing import List, Tuple, Pattern
 import builtins
 import wikipedia_duplicated_citations_merger as merger
+import pytest
 
 
 # Testing menu
@@ -27,8 +28,5 @@ def test_menu_normal(monkeypatch):
 def test_menu_invalid(monkeypatch):
     """Invalid choice"""
     monkeypatch.setattr(builtins, 'input', lambda _: '4')
-    try:
-        merger.menu('prompt', 2, ['opt1', 'opt2', 'opt3'])
-        assert False
-    except SystemExit:
-        pass
+    with pytest.raises(SystemExit):
+        _ = merger.menu('prompt', 2, ['opt1', 'opt2', 'opt3'])

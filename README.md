@@ -1,5 +1,7 @@
 # Wikipedia Duplicated Citations Merger
 
+[![Test](https://github.com/davidhcefx/Wikipedia-Duplicated-Citations-Merger/actions/workflows/python-test.yml/badge.svg)](https://github.com/davidhcefx/Wikipedia-Duplicated-Citations-Merger/actions/workflows/python-test.yml)
+
 [The free encyclopedia][wikipedia] stated that:
 
 > "If you simply copy exactly the same reference and citation, the citation will become duplicated."
