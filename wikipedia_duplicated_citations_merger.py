@@ -1,19 +1,23 @@
 #! /usr/bin/env python3
 # Merge duplicated Wikipedia references/citations. Written by davidhcefx, 2022.4.10.
-from typing import Dict, List, Tuple, Set, Union, Optional, Pattern, Match
+from typing import Dict, List, Tuple, Set, Optional, Pattern, Match, Any
 from string import digits
 import re
 import json
-import readline
 from hashlib import md5
 import requests
+try:
+    import readline  # for filename autocompletion
+    readline.parse_and_bind('tab: complete')
+except ModuleNotFoundError:
+    pass
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
 NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|".+?")', re.DOTALL)  # name attribute in <ref>
 # https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 URL_PATTERN = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
-TEMPLATE_NAMES: Optional[re.Pattern] = None
-TEMPLATE_PARAMS: Optional[re.Pattern] = None
+TEMPLATE_NAMES: Optional[Pattern[str]] = None
+TEMPLATE_PARAMS: Optional[Pattern[str]] = None
 
 
 class CitationDatabase:
@@ -21,10 +25,10 @@ class CitationDatabase:
     Associate citation-payloads with its short-names.
     A citation-payload is the part enclosed by <ref></ref>.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.shortnames: Dict[str, str] = dict()  # map a payload to its short name
 
-    def add(self, payload: str, shortname: str):
+    def add(self, payload: str, shortname: str) -> None:
         assert shortname not in self.shortnames.values(), \
             f"Name collision '{shortname}'. Check the article or try adding more hash digits."
         self.shortnames[payload] = shortname
@@ -76,7 +80,7 @@ def get_duplicated_refs(article: str, db: CitationDatabase) -> Set[str]:
 
     return result
 
-def has_name_attribute(ref: re.Match) -> bool:
+def has_name_attribute(ref: Match[str]) -> bool:
     return NAME_ATTR_PATTERN.search(ref.group('name')) is not None
 
 def merge(article: str) -> Tuple[str, int, List[str]]:
@@ -134,7 +138,7 @@ def extract_wikitext(url: str) -> str:
         'page': requests.utils.unquote(match.group('page')),  # type: ignore
     }
     if r := requests.get(match.group('host') + '/w/api.php', query, timeout=5):
-        return json.loads(r.text)['parse']['wikitext']
+        return str(json.loads(r.text)['parse']['wikitext'])
     return ''
 
 def menu(prompt: str, default: int, options: List[str]) -> int:
@@ -147,14 +151,13 @@ def menu(prompt: str, default: int, options: List[str]) -> int:
         raise SystemExit('Invalid choice!')
     return choice
 
-def main():
+def main() -> None:
     print('{:=<40}\n{:^40}\n{:=<40}'.format('', 'Wikipedia Duplicated Citations Merger', ''))
-    readline.parse_and_bind('tab: complete')  # for filename autocompletion
     ch = menu('\nHow do you wish to provide the input?', 3,
               ['Fetch from wikipedia', 'Load from file ...', 'Paste it here directly.'])
-    file_input = (None, input('URL of the wiki page: ')) if ch == 1 \
-                else input('Please provide the file name to load: ') if ch == 2 \
-                else 0
+    src_input: Tuple[str, Any] = ('u', input('URL of the wiki page: ')) if ch == 1 \
+        else ('f', input('Please provide the file name to load: ')) if ch == 2 \
+        else ('0', 0)
 
     ch = menu('\nHow do you wish to get the result?', 3,
               ['Save the result to \'result.txt\'.',
@@ -164,12 +167,11 @@ def main():
         else input('Please provide the file name to save: ') if ch == 2 \
         else ''
 
-    if file_input == 0:
+    if src_input[0] == '0':
         print('\nPaste your wiki article source code here:')
-        print('Press CTRL + D when completed.\n{:=<40}'.format(''))
+        print('Press CTRL + D (or CTRL + Z plus Enter) when completed.\n{:=<40}'.format(''))
 
-    article = extract_wikitext(file_input[1]) if isinstance(file_input, tuple) \
-        else open(file_input).read()
+    article = extract_wikitext(src_input[1]) if src_input[0] == 'u' else open(src_input[1]).read()
     new_article, merge_count, duplicated_refs = merge(article)
 
     if file_output:
