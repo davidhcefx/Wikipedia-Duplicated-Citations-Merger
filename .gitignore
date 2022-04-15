@@ -1,5 +1,7 @@
-# Generated outputs
+# Generated output
 result.txt
+# Editor
+*.swp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
