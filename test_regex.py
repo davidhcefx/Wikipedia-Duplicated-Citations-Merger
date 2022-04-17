@@ -1,4 +1,4 @@
-from typing import List, Tuple, Pattern, Match
+from typing import List, Pattern, Match
 import wikipedia_duplicated_citations_merger as merger
 
 

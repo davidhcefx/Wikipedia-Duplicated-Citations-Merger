@@ -8,7 +8,7 @@ from hashlib import md5
 import requests
 try:
     import readline  # for filename autocompletion
-    readline.parse_and_bind('tab: complete')
+    readline.parse_and_bind('tab: complete')  # type: ignore[attr-defined]
 except ModuleNotFoundError:
     pass
 
