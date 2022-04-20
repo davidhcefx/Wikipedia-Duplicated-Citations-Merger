@@ -2,11 +2,11 @@
 
 [![Test](https://github.com/davidhcefx/Wikipedia-Duplicated-Citations-Merger/actions/workflows/python-test.yml/badge.svg)](https://github.com/davidhcefx/Wikipedia-Duplicated-Citations-Merger/actions/workflows/python-test.yml)
 
-[The free encyclopedia][wikipedia] stated that:
+[The free encyclopedia][wikipedia] already stated that:
 
-> "If you simply copy exactly the same reference and citation, the citation will become duplicated."
+> "If you simply copy exactly the same reference and citation, the citation will become **duplicated**."
 
-However, it's pretty common to spot **duplicated citations** in the wild, for example within the page [David Green][] and [國旗][]. The best way to resolve this issue is by using [named references][duplicated], which is exactly how this tool works!
+Unfortunately, it's common to spot **duplicated citations** in the wild, for example within the page [David Green][] and [國旗][]. The best way to resolve this issue is by using [named references][duplicated], which is exactly how this tool works!
 
 For example, it would transfrom the following Wikitext:
 ```wikitext
