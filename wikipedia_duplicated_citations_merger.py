@@ -13,7 +13,7 @@ except ModuleNotFoundError:
     pass
 
 REF_PATTERN = re.compile(r'<ref\b(?P<name>[^>]*)(?<!/)>(?P<pay>.*?)</ref>', re.DOTALL)
-NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|".+?")', re.DOTALL)  # name attribute in <ref>
+NAME_ATTR_PATTERN = re.compile(r'name\s*=\s*(\w+|"[^"]*?")', re.DOTALL)  # name attribute in <ref>
 # https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 URL_PATTERN = re.compile(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
 TEMPLATE_NAMES: Optional[Pattern[str]] = None
