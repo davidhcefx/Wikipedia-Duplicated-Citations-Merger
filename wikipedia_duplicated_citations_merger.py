@@ -192,21 +192,6 @@ if __name__ == '__main__':
     main()
 
 
-# Testcases:
-"""
-<ref></ref>
-<ref> a < << </ </r </re </ref <ref>a<ref>a </ref>
-<ref> a </ref><ref> b </ref>
-<ref n = 1 name = NAME > a </ref>
-<ref name="NA M E">a</ref>
-<ref name=NA M E ></ref>
-<ref name = "NAME" />
-<ref name = "NAME" /><ref></ref>
-aa aa<ref>content 1</ref>bb bb<ref name=N1>content 2</ref>cc cc<ref>content 1</ref>dd
-  dd<ref name=N2 />ee ee<ref>content 2</ref>ff ff<ref name=N1>content 2</ref>gg
-  gg<ref name=N3>content 3</ref>hh hh<ref>content 4</ref>ii ii
-"""
 
-# Old patterns:
-#REF_PATTERN = re.compile(r'<ref\b([^>]*)(?<!/)>(([^<]|<(?!/ref>))*)</ref>', re.DOTALL)
-#OTHER_IGNORES = re.compile(r'(https?|www\.|\.(org|com)|(web\.)?archive|cgi|youtube|google|isbn)')
+## Old pattern:
+# REF_PATTERN = re.compile(r'<ref\b([^>]*)(?<!/)>(([^<]|<(?!/ref>))*)</ref>', re.DOTALL)
