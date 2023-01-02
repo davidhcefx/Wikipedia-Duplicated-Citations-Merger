@@ -20,26 +20,32 @@ def find_all_matches(pattern: Pattern[str], text: str) -> List[Match[str]]:
 def test_ref_regex():
     """Test the regex of ref tags."""
     refs = [
-        ('<ref></ref>', [(0, 11)]),  # empty payload
-        ('<ref> a < << </ </r </re </ref <ref>a<ref>a </ref>', [(0, 50)]),  # confusing end tag
-        ('<ref name="NA M E+" group="G">a</ref>', [(0, 37)]),  # ref with name attribute
-        ('<ref name = "NAME" /><ref></ref>', [(21, 32)]),      # skipped ref tag
-        ('<ref>a</ref> <ref>b</ref>', [(0, 12), (13, 25)]),    # multiple refs
+        ('<ref></ref>', [(0, 11)]),   # empty payload
+        ('<ref>+</ref>', [(0, 12)]),  # non-empty payload
+        ('<ref name="NA M E!$%&()*,-.:;@[]^_`{|}~">a</ref>', [(0, 48)]),  # name attr
+        ('<ref name="">a</ref>', [(0, 20)]),   # empty name attr
+        ('<ref  >a</ref>', [(0, 14)]),         # black attr
+        ('<ref name="N" />a</ref>', []),   # skipped (self-contained)
+        ('<referen_ce >a</ref>', []),  # fake ref
+        ('<ref>a</ref>b</ref>', [(0, 12)]),                   # multiple end tag
+        ('<ref>a</ref> <ref>b</ref>', [(0, 12), (13, 25)]),   # multiple refs
         (COMPLEX_REF, [(5, 25), (30, 61), (66, 86),
                        (113, 134), (139, 171),  # second line
                        (176, 207), (212, 232)]),  # third line
     ]
     for text, result in refs:
         matches = find_all_matches(merger.REF_PATTERN, text)
-        assert result == list(map(lambda m: m.span(), matches))
+        assert result == list(map(lambda m: m.span(), matches)), 'Failed for {}'.format(text)
 
 def test_name_regex():
     """Test the regex for extracting name attribute within ref tags."""
     refs = [
-        ('<ref n = 1 name = NAME _name = 2 >a</ref>', ['NAME']),  # unquoted with spaces
-        ('<ref name=NA M E+ group="G">a</ref>', ['NA']),          # unquoted, leaving spaces outside
-        ('<ref name="NA M E+" group="G">a</ref>', ['"NA M E+"']),  # quoted
-        ('<ref name = "NAME" /><ref></ref>', [None]),              # skipped ref tag
+        # quoted
+        ('<ref name="NA M E!$%&()*,-.:;@[]^_`{|}~">a</ref>', ['"NA M E!$%&()*,-.:;@[]^_`{|}~"']),
+        ('<ref name="" group="G">a</ref>', ['""']),  # quoted empty with group
+        ('<ref name=N group=G>a</ref>', ['N']),       # unquoted
+        ('<ref name = N group = G >a</ref>', ['N']),  # unquoted with spaces
+        ('<ref name = "NAME" /><ref></ref>', [None]),  # skipped
         (COMPLEX_REF, [None, '"N1"', None, None, '"N1"', '"N3"', None]),
     ]
     for text, result in refs:
@@ -48,4 +54,4 @@ def test_name_regex():
             map(
                 lambda match: match.group('name'),
                 find_all_matches(merger.REF_PATTERN, text)))
-        assert result == list(names)
+        assert result == list(names), 'Failed for {}'.format(text)
